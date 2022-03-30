@@ -1,4 +1,5 @@
 import { join, toFileUrl } from "https://deno.land/std@0.132.0/path/mod.ts"
+import { lookup } from "https://deno.land/x/media_types@v3.0.2/mod.ts";
 
 const rootDir = Deno.realPathSync('./todomvc')
 
@@ -25,11 +26,15 @@ async function serveHttp(conn: Deno.Conn) {
 
     // Convert to a file url for fetch API.
     const fileUrl = toFileUrl(join(rootDir, url.pathname))
+    const resolveContentType = (res: Response) => {
+      const headers = new Headers(res.headers)
+      headers.set('content-type', lookup(fileUrl.pathname) ?? "text/plain");
+      return new Response(res.body, { headers })
+    }
+    const catchReadFailure = () => new Response('', { status: 404 })
 
     // The requestEvent's `.respondWith()` method is how we send the response
     // back to the client.
-    requestEvent.respondWith(fetch(fileUrl.toString()).catch(() => {
-      return new Response('', { status: 200 })
-    }));
+    requestEvent.respondWith(fetch(fileUrl.toString()).then(resolveContentType, catchReadFailure));
   }
 }
